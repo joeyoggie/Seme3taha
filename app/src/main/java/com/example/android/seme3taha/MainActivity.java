@@ -11,7 +11,6 @@ import android.location.Location;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.v7.app.ActionBarActivity;
-import android.text.format.Time;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -19,6 +18,10 @@ import android.view.View;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.android.volley.Request;
+import com.android.volley.Response;
+import com.android.volley.VolleyError;
+import com.android.volley.toolbox.StringRequest;
 import com.facebook.FacebookSdk;
 import com.facebook.share.model.ShareLinkContent;
 import com.facebook.share.model.SharePhoto;
@@ -44,9 +47,14 @@ import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.MarkerOptions;
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.lang.reflect.Type;
+import java.net.URLEncoder;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
@@ -64,13 +72,17 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
 
     //Boolean to indicate whether a bomb was heard or not and update the map accordingly
     static boolean bombHeard = false;
+    //Boolean that will just indicate whether the map is loaded for the first time or not
+    static boolean firstStart = true;
     //String that will hold the address of the current/bomb location
     String addressString = null;
+    //String that will hold the timestamp of the current/bomb time
+    String timestamp;
 
     TextView latTextView;
     TextView longTextView;
     TextView addressTextView;
-    TextView timestamp;
+    TextView timestampTextView;
 
     //mGoogleApiClient is responsible for handling connections related to Google Play Services APIs
     private GoogleApiClient mGoogleApiClient;
@@ -98,6 +110,9 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
     //Progress dialog to be shown whenever there's loading being done
     ProgressDialog progressDialog;
 
+    //List of nearby danger zones
+    List<LocationEvent> nearbyEvents;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         //Initialize the Facebook SDK before executing any other operations,
@@ -122,24 +137,18 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
                     .addOnConnectionFailedListener(this)
                     .build();
         }
-        //Initialize the locationRequest object and set the preferred interval to 5 seconds, and same for fastest interval
-        //Also, use the HIGH_ACCURACY parameter to get a more precise location
-        locationRequest = new LocationRequest();
-        locationRequest.setInterval(5000);
-        locationRequest.setFastestInterval(5000);
-        locationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
+
+        //Build and initialize the LocationSettingsRequest/locationRequest objects and verify the device meets the required settings to get a GPS location
+        buildLocationSettingsRequest();
 
         //Initialize the textviews
         latTextView = (TextView) findViewById(R.id.lat_text_view);
         longTextView = (TextView) findViewById(R.id.long_text_view);
         addressTextView = (TextView) findViewById(R.id.address_text_view);
-        timestamp = (TextView) findViewById(R.id.timestamp);
+        timestampTextView = (TextView) findViewById(R.id.timestamp);
 
         mapFragment = (MapFragment) getFragmentManager().findFragmentById(R.id.map);
         mapFragment.getMapAsync(this);
-
-        //Build the LocationSettingsRequest and check if there are any settings that need to be changed for Location Services
-        buildLocationSettingsRequest();
 
         //Initialize the Facebook ShareDialog
         shareDialog = new ShareDialog(this);
@@ -152,6 +161,14 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
     }
 
     private void buildLocationSettingsRequest() {
+
+        //Initialize the locationRequest object and set the preferred interval to 1 seconds, and same for fastest interval
+        //Also, use the HIGH_ACCURACY parameter to get a more precise location
+        locationRequest = new LocationRequest();
+        locationRequest.setInterval(1000);
+        locationRequest.setFastestInterval(1000);
+        locationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
+
         //Check whether the device's settings are enough to get a GPS position
         LocationSettingsRequest.Builder builder = new LocationSettingsRequest.Builder()
                 .addLocationRequest(locationRequest);
@@ -173,13 +190,6 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
                     if (mLastLocation != null) {
                         latitude = mLastLocation.getLatitude();
                         longitude = mLastLocation.getLongitude();
-                        latTextView.setText(String.valueOf(latitude));
-                        longTextView.setText(String.valueOf(longitude));
-
-                        AddressDecoder decoder = new AddressDecoder();
-                        decoder.execute(mLastLocation);
-
-                        mapFragment.getMapAsync(MainActivity.this);
                     }
                     else {
                         Toast.makeText(getApplicationContext(),"Please make sure your GPS is turned on",Toast.LENGTH_SHORT).show();
@@ -202,10 +212,86 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
 
     private void fetchNearbyEvents() {
         //Get the nearby events from the server here...
+        nearbyEvents = new ArrayList<>();
+        String url = "http://192.168.1.44:8080/Seme3taha/GetNearbyEvents?&userLongitude="+longitude+"&userLatitude="+latitude;
+        //Request a string response from the provided URL.
+        StringRequest request = new StringRequest(Request.Method.GET, url, new Response.Listener<String>(){
+            Gson gson = new Gson();
+            @Override
+            public void onResponse(String response) {
+                if(response.length() > 0) {
+                    Type type = new TypeToken<List<LocationEvent>>(){}.getType();
+                    nearbyEvents = gson.fromJson(response.toString(), type);
+                    if(nearbyEvents.isEmpty() == false){
+                        Log.d("Volley", "Received events: "+String.valueOf(nearbyEvents.size()));
+                        //Display fetched markers from server on map
+                        displayNearbyEvents();
+                    }
+                    else{
+                        Log.d("Volley", "Received events: "+response.toString());
+                    }
+                }
+                else {
+                    Log.d("Volley", "Received an empty response from server.");
+                    Toast.makeText(MainActivity.this, "Received an empty response from server.", Toast.LENGTH_SHORT).show();
+                }
+            }
+        }, new Response.ErrorListener() {
+            @Override
+            public void onErrorResponse(VolleyError error) {
+                Log.d("Volley","Volley response error.");
+                Toast.makeText(MainActivity.this, "Volley response error.", Toast.LENGTH_SHORT).show();
+            }
+        });
+        HttpConnector.getInstance(this).addToRequestQueue(request);
     }
 
+    //Display fetched markers from server on map
     private void displayNearbyEvents(){
         //Display the nearby events on the map here...
+        if(nearbyEvents.isEmpty() == false) {
+            int i;
+            int numberOfEvents = nearbyEvents.size();
+            for(i = 0; i<= numberOfEvents - 1 ;i++) {
+                LocationEvent locEvent = nearbyEvents.get(i);
+                //Create the marker
+                MarkerOptions marker = new MarkerOptions()
+                        .position(new LatLng(locEvent.getLatitude(), locEvent.getLongitude()))
+                        .snippet(locEvent.getAddress())
+                        .title("Bomb heard from this location @ " + locEvent.getTimestamp())
+                        .icon(BitmapDescriptorFactory.fromResource(R.drawable.bomb3icon))
+                        .flat(true);
+                mMap.addMarker(marker).setAlpha((float)0.1);
+            }
+        }
+    }
+
+    private void sendEventToServer(LocationEvent locEvent) {
+        //Send the event info to the server in a background thread
+
+        //Remove the " " (space) before the AM/PM in the timestamp so it can be sent over the HTTP URL
+        //Encoding it didn't work somehow, should look into this again later
+        String t = locEvent.getTimestamp();
+        t.replace(" ","");
+        
+        //Instantiate the RequestQueue.
+        String url = "http://192.168.1.44:8080/Seme3taha/InsertNewLocationEvent?latitude=" + locEvent.getLatitude() + "&longitude=" + locEvent.getLongitude() + "&address=" + URLEncoder.encode(locEvent.getAddress())+"&timestamp="+URLEncoder.encode(t);
+        //Request a string response from the provided URL.
+        StringRequest request = new StringRequest(Request.Method.GET, url, new Response.Listener<String>(){
+            @Override
+            public void onResponse(String response) {
+                Log.d("VOLLEY","VOLLEY RESPONSE SUCCESS");
+
+            }
+        }, new Response.ErrorListener() {
+            @Override
+            public void onErrorResponse(VolleyError error) {
+                Log.d("VOLLEY", "Volley response error.");
+                Toast.makeText(MainActivity.this, "Volley response error.", Toast.LENGTH_SHORT).show();
+            }
+        });
+        //Add the request to the RequestQueue.
+        HttpConnector.getInstance(this).addToRequestQueue(request);
     }
 
     @Override
@@ -238,9 +324,10 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
         mLastLocation = location;
         latitude = mLastLocation.getLatitude();
         longitude = mLastLocation.getLongitude();
+        timestamp = java.text.DateFormat.getTimeInstance().format(new Date());
         latTextView.setText(String.valueOf(latitude));
         longTextView.setText(String.valueOf(longitude));
-        timestamp.setText(java.text.DateFormat.getTimeInstance().format(new Date()));
+        timestampTextView.setText(timestamp);
         //Khally el mapFragment.getMapAsync deh dependant 3la checkbox aw button to make the map "follow" the user location
         //mapFragment.getMapAsync(this);
     }
@@ -278,60 +365,14 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
         //Show the user location on the map
         map.setMyLocationEnabled(true);
 
-        //Display fetched markers from server on map here...
-        displayNearbyEvents();
-
-        //Create the marker
-        MarkerOptions marker1 = new MarkerOptions()
-                .position(new LatLng(29.958303, 30.936197))
-                .snippet("6th of October City")
-                .title("Bomb heard from this location")
-                .icon(BitmapDescriptorFactory.fromResource(R.drawable.bomb3icon))
-                .flat(true);
-        map.addMarker(marker1).setAlpha((float)0.1);
-
-        //Create the marker
-        MarkerOptions marker2 = new MarkerOptions()
-                .position(new LatLng(30.017174, 31.412134))
-                .snippet("Downtown Mall, 5th District")
-                .title("Bomb heard from this location")
-                .icon(BitmapDescriptorFactory.fromResource(R.drawable.bomb3icon))
-                .flat(true);
-        map.addMarker(marker2).setAlpha((float)0.1);
-
-        //Create the marker
-        MarkerOptions marker3 = new MarkerOptions()
-                .position(new LatLng(29.851272, 31.342195))
-                .snippet("Faculty of Engineering, Helwan")
-                .title("Bomb heard from this location")
-                .icon(BitmapDescriptorFactory.fromResource(R.drawable.bomb3icon))
-                .flat(true);
-        map.addMarker(marker3).setAlpha((float)0.1);
-
         //If bombHeard is true, add a marker to the map and zoom in to the location of the marker (Zoom level 15)
         //Else, don't zoom in, just use City view (Zoom level 10)
         if(bombHeard) {
-            //Get the current time strting that will be used insidethe marker
-            String currentTime;
-            Time time = new Time();
-            time.setToNow();
-            if(time.minute < 10) {
-                currentTime = time.hour + ":0" + time.minute;
-            }
-            else {
-                currentTime = time.hour + ":" + time.minute;
-            }
-            if(time.hour > 12) {
-                currentTime += "PM";
-            }
-            else {
-                currentTime += "AM";
-            }
             //Create the marker
             MarkerOptions marker = new MarkerOptions()
                     .position(new LatLng(latitude, longitude))
                     .snippet(addressString)
-                    .title("Bomb heard from this location @ " + currentTime)
+                    .title("Bomb heard from this location @ " + timestamp)
                     .icon(BitmapDescriptorFactory.fromResource(R.drawable.bomb3icon))
                     .flat(true);
             map.addMarker(marker)
@@ -340,10 +381,12 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
             map.animateCamera(CameraUpdateFactory.newLatLngZoom(new LatLng(latitude, longitude), 15));
 
             mMap = map;
+            bombHeard = false;
         }
-        else {
+        else if(firstStart) {
             map.animateCamera(CameraUpdateFactory.newLatLngZoom(new LatLng(latitude, longitude), 10));
             mMap = map;
+            firstStart = false;
         }
     }
 
@@ -351,9 +394,24 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
         Toast.makeText(getApplicationContext(), "Getting location...", Toast.LENGTH_SHORT).show();
 
         bombHeard = true;
+        //Get the current time string that will be used inside the marker
+        /*Time time = new Time();
+        time.setToNow();
+        if(time.minute < 10) {
+            timestamp = time.hour + ":0" + time.minute;
+        }
+        else {
+            timestamp = time.hour + ":" + time.minute;
+        }
+        if(time.hour > 12) {
+            timestamp += "PM";
+        }
+        else {
+            timestamp += "AM";
+        }*/
 
-        //Build the LocationSettingsRequest and check if there are any settings that need to be changed for Location Services
-        buildLocationSettingsRequest();
+        AddressDecoder decoder = new AddressDecoder();
+        decoder.execute(mLastLocation);
     }
 
     public void shareFB(View view) {
@@ -461,6 +519,16 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
         protected void onPostExecute(String result) {
             addressTextView.setText(addressString);
             mapFragment.getMapAsync(MainActivity.this);
+            LocationEvent locationEvent = new LocationEvent();
+            locationEvent.setLatitude(latitude);
+            locationEvent.setLongitude(longitude);
+            locationEvent.setTimestamp(timestamp);
+            locationEvent.setAddress(addressString);
+            Log.d("EVENT:",String.valueOf(latitude));
+            Log.d("EVENT:",String.valueOf(longitude));
+            Log.d("EVENT:",timestamp);
+            Log.d("EVENT:",addressString);
+            sendEventToServer(locationEvent);
         }
 
         @Override

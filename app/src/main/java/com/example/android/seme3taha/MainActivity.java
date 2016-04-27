@@ -60,9 +60,9 @@ import java.util.List;
 import java.util.Locale;
 
 
-//Todo send the location to a webserver which will send the GCM notifications to other nearby/to-be-nearby phones
-//Todo fetch nearby locations from a webserver and display them when opening the app
-//Todo add GCM functionality to receive notifications about nearby places
+//TODO send the location to a webserver which will send the GCM notifications to other nearby/to-be-nearby phones
+//TODO add GCM functionality to receive notifications about nearby places
+//TODO enable users to register and have the option to check up on their friends/family to know if they're safe or not
 
 public class MainActivity extends ActionBarActivity implements GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener, LocationListener, OnMapReadyCallback {
 
@@ -270,10 +270,10 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
         //Send the event info to the server in a background thread
 
         //Remove the " " (space) before the AM/PM in the timestamp so it can be sent over the HTTP URL
-        //Encoding it didn't work somehow, should look into this again later
+        //Encoding it didn't work somehow, TODO should look into this again later
         String t = locEvent.getTimestamp();
         t.replace(" ","");
-        
+
         //Instantiate the RequestQueue.
         String url = "http://192.168.1.44:8080/Seme3taha/InsertNewLocationEvent?latitude=" + locEvent.getLatitude() + "&longitude=" + locEvent.getLongitude() + "&address=" + URLEncoder.encode(locEvent.getAddress())+"&timestamp="+URLEncoder.encode(t);
         //Request a string response from the provided URL.
@@ -328,7 +328,7 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
         latTextView.setText(String.valueOf(latitude));
         longTextView.setText(String.valueOf(longitude));
         timestampTextView.setText(timestamp);
-        //Khally el mapFragment.getMapAsync deh dependant 3la checkbox aw button to make the map "follow" the user location
+        //TODO Khally el mapFragment.getMapAsync deh dependant 3la checkbox aw button to make the map "follow" the user location
         //mapFragment.getMapAsync(this);
     }
 
@@ -394,6 +394,7 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
         Toast.makeText(getApplicationContext(), "Getting location...", Toast.LENGTH_SHORT).show();
 
         bombHeard = true;
+        //TODO use DateTime objects instead of Time which is depreciated
         //Get the current time string that will be used inside the marker
         /*Time time = new Time();
         time.setToNow();

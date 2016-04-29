@@ -75,9 +75,9 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
     //Boolean that will just indicate whether the map is loaded for the first time or not
     static boolean firstStart = true;
     //String that will hold the address of the current/bomb location
-    String addressString = null;
+    String addressString = "somewhere on earth";
     //String that will hold the timestamp of the current/bomb time
-    String timestamp;
+    String timestamp = "once upon a time, sometime long ago in the past";
 
     TextView latTextView;
     TextView longTextView;
@@ -232,15 +232,15 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
                     }
                 }
                 else {
-                    Log.d("Volley", "Received an empty response from server.");
-                    Toast.makeText(MainActivity.this, "Received an empty response from server.", Toast.LENGTH_SHORT).show();
+                    Log.d("Volley", "Received an empty response from server. Probably means you're safe. :)");
+                    Toast.makeText(MainActivity.this, "Received an empty response from server. Probably means you're safe. :)", Toast.LENGTH_SHORT).show();
                 }
             }
         }, new Response.ErrorListener() {
             @Override
             public void onErrorResponse(VolleyError error) {
-                Log.d("Volley","Volley response error.");
-                Toast.makeText(MainActivity.this, "Volley response error.", Toast.LENGTH_SHORT).show();
+                Log.d("Volley","Unable to fetch nearby events, server unreachable.");
+                Toast.makeText(MainActivity.this, "Unable to fetch nearby events, server unreachable.", Toast.LENGTH_SHORT).show();
             }
         });
         HttpConnector.getInstance(this).addToRequestQueue(request);
@@ -280,14 +280,14 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
         StringRequest request = new StringRequest(Request.Method.GET, url, new Response.Listener<String>(){
             @Override
             public void onResponse(String response) {
-                Log.d("VOLLEY","VOLLEY RESPONSE SUCCESS");
+                Log.d("VOLLEY","Event submitted to server successfully.");
 
             }
         }, new Response.ErrorListener() {
             @Override
             public void onErrorResponse(VolleyError error) {
-                Log.d("VOLLEY", "Volley response error.");
-                Toast.makeText(MainActivity.this, "Volley response error.", Toast.LENGTH_SHORT).show();
+                Log.d("VOLLEY", "Unable to submit event to server, server unreachable");
+                Toast.makeText(MainActivity.this, "Unable to submit event to server, server unreachable", Toast.LENGTH_SHORT).show();
             }
         });
         //Add the request to the RequestQueue.

@@ -163,7 +163,7 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
         //Fetch nearby events from the server
         fetchNearbyEvents();
 
-        //Hide the progress dialog (should be dismissed when all above functions have finished, even background ones)
+        //Hide the progress dialog (TODO should be dismissed when all above functions have finished, even background ones)
         progressDialog.dismiss();
     }
 
@@ -230,17 +230,18 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
                     Type type = new TypeToken<List<LocationEvent>>(){}.getType();
                     nearbyEvents = gson.fromJson(response.toString(), type);
                     if(nearbyEvents.isEmpty() == false){
-                        Log.d("Volley", "Received events: "+String.valueOf(nearbyEvents.size()));
+                        Log.d("Volley", "Received location events: "+String.valueOf(nearbyEvents.size()));
                         //Display fetched markers from server on map
                         displayNearbyEvents();
                     }
                     else{
-                        Log.d("Volley", "Received events: "+response.toString());
+                        Log.d("Volley", "Received no location events");
+                        Toast.makeText(MainActivity.this, "Received no location events. This most likely means you're safe. :)", Toast.LENGTH_SHORT).show();
                     }
                 }
                 else {
                     Log.d("Volley", "Received an empty response from server. Probably means you're safe. :)");
-                    Toast.makeText(MainActivity.this, "Received an empty response from server. Probably means you're safe. :)", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(MainActivity.this, "Received an empty response from server. This probably means you're safe. :)", Toast.LENGTH_SHORT).show();
                 }
             }
         }, new Response.ErrorListener() {

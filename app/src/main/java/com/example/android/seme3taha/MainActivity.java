@@ -54,13 +54,14 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.lang.reflect.Type;
 import java.net.URLEncoder;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
 
-//TODO send the location to a webserver which will send the GCM notifications to other nearby/to-be-nearby phones
+//TODO send the location to a webserver (DONE) which will send the GCM notifications to other nearby/to-be-nearby phones
 //TODO add GCM functionality to receive notifications about nearby places
 //TODO enable users to register and have the option to check up on their friends/family to know if they're safe or not
 
@@ -113,6 +114,9 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
     //List of nearby danger zones
     List<LocationEvent> nearbyEvents;
 
+    //SimpleDateFormat that will format all the timestamps to a specific format (h:mm a - dd MMM, yyyy)
+    SimpleDateFormat simpleDateFormat;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         //Initialize the Facebook SDK before executing any other operations,
@@ -128,6 +132,9 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
         progressDialog.setMessage("Loading, please wait...");
         progressDialog.setCancelable(false);
         progressDialog.show();
+
+        //Initialize the SimpleDateFormat that will format the timestamps
+        simpleDateFormat = new SimpleDateFormat("h:mm a - dd MMM, yyyy");
 
         //Initialize the mGoogleApiClient object if it's null, and make sure to pass LocationServices API parameter
         if(mGoogleApiClient ==  null) {
@@ -213,7 +220,7 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
     private void fetchNearbyEvents() {
         //Get the nearby events from the server here...
         nearbyEvents = new ArrayList<>();
-        String url = "http://192.168.1.44:8080/Seme3taha/GetNearbyEvents?&userLongitude="+longitude+"&userLatitude="+latitude;
+        String url = "http://197.45.183.87:8080/Seme3taha/GetNearbyEvents?&userLongitude="+longitude+"&userLatitude="+latitude;
         //Request a string response from the provided URL.
         StringRequest request = new StringRequest(Request.Method.GET, url, new Response.Listener<String>(){
             Gson gson = new Gson();
@@ -268,14 +275,8 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
 
     private void sendEventToServer(LocationEvent locEvent) {
         //Send the event info to the server in a background thread
-
-        //Remove the " " (space) before the AM/PM in the timestamp so it can be sent over the HTTP URL
-        //Encoding it didn't work somehow, TODO should look into this again later
-        String t = locEvent.getTimestamp();
-        t.replace(" ","");
-
         //Instantiate the RequestQueue.
-        String url = "http://192.168.1.44:8080/Seme3taha/InsertNewLocationEvent?latitude=" + locEvent.getLatitude() + "&longitude=" + locEvent.getLongitude() + "&address=" + URLEncoder.encode(locEvent.getAddress())+"&timestamp="+URLEncoder.encode(t);
+        String url = "http://197.45.183.87:8080/Seme3taha/InsertNewLocationEvent?latitude=" + locEvent.getLatitude() + "&longitude=" + locEvent.getLongitude() + "&address=" + URLEncoder.encode(locEvent.getAddress())+"&timestamp="+URLEncoder.encode(locEvent.getTimestamp());
         //Request a string response from the provided URL.
         StringRequest request = new StringRequest(Request.Method.GET, url, new Response.Listener<String>(){
             @Override
@@ -324,7 +325,8 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
         mLastLocation = location;
         latitude = mLastLocation.getLatitude();
         longitude = mLastLocation.getLongitude();
-        timestamp = java.text.DateFormat.getTimeInstance().format(new Date());
+        Date date = new Date(); //gets the current time
+        timestamp = simpleDateFormat.format(date); //formats the date object to the specified date format above
         latTextView.setText(String.valueOf(latitude));
         longTextView.setText(String.valueOf(longitude));
         timestampTextView.setText(timestamp);
@@ -394,22 +396,6 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
         Toast.makeText(getApplicationContext(), "Getting location...", Toast.LENGTH_SHORT).show();
 
         bombHeard = true;
-        //TODO use DateTime objects instead of Time which is depreciated
-        //Get the current time string that will be used inside the marker
-        /*Time time = new Time();
-        time.setToNow();
-        if(time.minute < 10) {
-            timestamp = time.hour + ":0" + time.minute;
-        }
-        else {
-            timestamp = time.hour + ":" + time.minute;
-        }
-        if(time.hour > 12) {
-            timestamp += "PM";
-        }
-        else {
-            timestamp += "AM";
-        }*/
 
         AddressDecoder decoder = new AddressDecoder();
         decoder.execute(mLastLocation);

@@ -269,7 +269,9 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
                         .title("Bomb heard from this location @ " + locEvent.getTimestamp())
                         .icon(BitmapDescriptorFactory.fromResource(R.drawable.bomb3icon))
                         .flat(true);
-                mMap.addMarker(marker).setAlpha((float)0.1);
+                if(mMap != null){
+                    mMap.addMarker(marker).setAlpha((float)0.1);
+                }
             }
         }
     }
@@ -346,6 +348,7 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
     protected void onStop() {
         //Disconnect from the Google Play Services
         mGoogleApiClient.disconnect();
+        firstStart = true;
         super.onStop();
     }
 
@@ -354,6 +357,7 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
         super.onPause();
         //Stop listening for locations to save battery
         LocationServices.FusedLocationApi.removeLocationUpdates(mGoogleApiClient, this);
+        firstStart = true;
     }
 
     @Override

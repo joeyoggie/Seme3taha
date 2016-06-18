@@ -220,7 +220,7 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
     private void fetchNearbyEvents() {
         //Get the nearby events from the server here...
         nearbyEvents = new ArrayList<>();
-        String url = "http://197.45.183.87:8080/Seme3taha/GetNearbyEvents?&userLongitude="+longitude+"&userLatitude="+latitude;
+        String url = "http://8.35.196.66:8080/Seme3taha/GetNearbyEvents?&userLongitude="+longitude+"&userLatitude="+latitude;
         //Request a string response from the provided URL.
         StringRequest request = new StringRequest(Request.Method.GET, url, new Response.Listener<String>(){
             Gson gson = new Gson();
@@ -279,7 +279,7 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
     private void sendEventToServer(LocationEvent locEvent) {
         //Send the event info to the server in a background thread
         //Instantiate the RequestQueue.
-        String url = "http://197.45.183.87:8080/Seme3taha/InsertNewLocationEvent?latitude=" + locEvent.getLatitude() + "&longitude=" + locEvent.getLongitude() + "&address=" + URLEncoder.encode(locEvent.getAddress())+"&timestamp="+URLEncoder.encode(locEvent.getTimestamp());
+        String url = "http://8.35.196.66:8080/Seme3taha/InsertNewLocationEvent?latitude=" + locEvent.getLatitude() + "&longitude=" + locEvent.getLongitude() + "&address=" + URLEncoder.encode(locEvent.getAddress())+"&timestamp="+URLEncoder.encode(locEvent.getTimestamp());
         //Request a string response from the provided URL.
         StringRequest request = new StringRequest(Request.Method.GET, url, new Response.Listener<String>(){
             @Override
